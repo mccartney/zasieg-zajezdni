@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zasięg zajezdni – 436</title>
+<link rel="stylesheet" href="https://436.pl/_/436.css">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="data.js"></script>
+<style>
+  :root {
+    --ink: #1b1b1b; --ink-2: #555; --ink-3: #888; --line: #e2e2e2;
+    --panel: rgba(255, 255, 255, 0.96); --hover: #f3f3f1; --accent: #06c;
+  }
+  html, body { margin: 0; height: 100%; background: #f6f6f4; color: var(--ink);
+    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #map { position: absolute; inset: 0; }
+  #panel { position: absolute; top: 12px; left: 12px; width: 360px; max-height: calc(100% - 24px);
+    overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.08); padding: 12px 14px; box-sizing: border-box; }
+  .h436 { --h436-size: 1rem; margin-bottom: 10px; }
+  h1 { font-size: 17px; margin: 0 0 2px; }
+  .sub { color: var(--ink-2); margin-bottom: 10px; }
+  .sub a { color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th { text-align: right; font-weight: 500; color: var(--ink-3); font-size: 11px; padding: 0 0 3px 6px; }
+  th:first-child { text-align: left; padding-left: 0; }
+  td { padding: 4px 0 4px 6px; text-align: right; border-top: 1px solid var(--line); white-space: nowrap; }
+  td:first-child { text-align: left; padding-left: 0; white-space: nowrap; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--hover); }
+  tbody tr.off { opacity: .4; }
+  tbody tr.solo td:first-child { font-weight: 600; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+  .hint { color: var(--ink-3); font-size: 12px; margin-top: 8px; }
+  #detail { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); display: none; }
+  #detail h2 { font-size: 14px; margin: 0 0 4px; }
+  #detail .lines { color: var(--ink-2); word-spacing: 2px; }
+  #detail dl { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; margin: 6px 0; }
+  #detail dt { color: var(--ink-3); }
+  #detail dd { margin: 0; font-variant-numeric: tabular-nums; }
+  details { margin-top: 10px; color: var(--ink-2); font-size: 12px; }
+  summary { cursor: pointer; color: var(--ink); }
+  .maplibregl-popup-content { font: 12px/1.35 system-ui, sans-serif; padding: 8px 10px; max-width: 320px; }
+  .tip-row { display: grid; grid-template-columns: auto auto 1fr; gap: 0 6px; align-items: baseline; margin: 2px 0; }
+  .tip-row b { font-variant-numeric: tabular-nums; }
+  .tip-row span.l { color: var(--ink-2); }
+  .tip-h { color: var(--ink-3); margin-bottom: 3px; }
+  .yard { width: 14px; height: 14px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.35); box-sizing: border-box; cursor: default; }
+  .centre { width: 10px; height: 10px; transform: rotate(45deg); border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.4); box-sizing: border-box; }
+  @media (max-width: 640px) {
+    #panel { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 45%; border-radius: 10px 10px 0 0; }
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="panel">
+  <header class="h436"><a href="https://436.pl/"><img src="https://436.pl/436.png" alt="436"
+    width="480" height="289">.pl/</a><span>zasieg-zajezdni/</span></header>
+  <h1>Zasięg zajezdni</h1>
+  <div class="sub" id="sub"></div>
+  <table>
+    <thead><tr><th>Zakład</th><th>linie</th><th>kursy</th></tr></thead>
+    <tbody id="legend"></tbody>
+  </table>
+  <div class="hint">Kliknij zakład, żeby zobaczyć tylko jego sieć; kliknij ponownie, żeby wrócić.</div>
+  <div id="detail"></div>
+  <details>
+    <summary>Jak to czytać</summary>
+    <p>Każdy odcinek ulicy pokazuje osobną wstęgę dla każdego zakładu, który tamtędy jeździ;
+    grubość ~ pierwiastek z liczby kursów na dobę (oba kierunki razem). Wstęgi leżą obok siebie w stałej kolejności zakładów.</p>
+    <p>Po kliknięciu zakładu ◆ to środek ciężkości jego sieci (ważony kursokilometrami).
+    Kropki to zajezdnie MZA (z kursów zjazdowych); przewoźnicy kontraktowi nie mają ich w danych.</p>
+    <p>Linie dzienne (bez N, L, Z), bez kursów zjazdowych i wyjazdowych. Zakład z pola <code>depot_id</code> w GTFS,
+    jak w <a href="https://436.pl/przydzial-brygad/">Przydziale brygad</a>; zajezdnie przewoźnika liczone razem.</p>
+  </details>
+</div>
+<script>
+const D = window.ZASIEG;
+const COLOR = Object.fromEntries(D.depots.map(d => [d.id, d.color]));
+const NAME = Object.fromEntries(D.depots.map(d => [d.id, d.name]));
+const ORDER = D.depots.map(d => d.id);
+const fmt = n => n.toLocaleString("pl-PL");
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+
+{
+  const [y, m, d] = [D.date.slice(0, 4), +D.date.slice(4, 6), +D.date.slice(6)];
+  const day = new Date(Date.UTC(+y, m - 1, d));
+  const wd = ["niedziela", "poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota"][day.getUTCDay()];
+  const mon = ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca", "sierpnia", "września", "października", "listopada", "grudnia"][m - 1];
+  document.getElementById("sub").innerHTML =
+    `Autobusy WTP, linie dzienne · ${wd} ${d} ${mon} ${y}<br>GTFS <a href="https://436.pl/gtfs/">436.pl</a> z ${esc(D.feedVersion.slice(0, 10))} · mapa © OpenStreetMap`;
+}
+
+const colorExpr = ["match", ["get", "d"], ...ORDER.flatMap(id => [id, COLOR[id]]), "#999"];
+// Ribbon width/offset are stored in px at zoom 12 and scaled with zoom.
+const ZOOM_SCALE = [9, 0.4, 12, 1, 15, 2.5, 18, 8];
+const scaled = prop => ["interpolate", ["exponential", 1.6], ["zoom"],
+  ...ZOOM_SCALE.flatMap((v, i) => i % 2 ? [] : [v, ["*", ["get", prop], ZOOM_SCALE[i + 1]]])];
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: "https://tiles.openfreemap.org/styles/positron",
+  bounds: bbox(D.ribbons.features),
+  fitBoundsOptions: { padding: { top: 30, bottom: 30, left: innerWidth > 640 ? 370 : 30, right: 30 } },
+  attributionControl: { compact: true },
+  // ?shot keeps the canvas readable for headless screenshots
+  preserveDrawingBuffer: location.search.includes("shot"),
+});
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-right");
+
+function bbox(features) {
+  let [x0, y0, x1, y1] = [180, 90, -180, -90];
+  for (const f of features) for (const [x, y] of f.geometry.coordinates) {
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  return [[x0, y0], [x1, y1]];
+}
+
+let solo = null;
+
+map.on("load", () => {
+  // Put our layers under the basemap's labels.
+  const firstSymbol = map.getStyle().layers.find(l => l.type === "symbol")?.id;
+  // Basemap labels in Polish rather than the style's English.
+  for (const l of map.getStyle().layers) {
+    if (l.type === "symbol" && JSON.stringify(l.layout?.["text-field"] ?? "").includes("name")) {
+      map.setLayoutProperty(l.id, "text-field", ["coalesce", ["get", "name:pl"], ["get", "name"]]);
+    }
+  }
+  map.addSource("ribbons", { type: "geojson", data: D.ribbons });
+
+  map.addLayer({
+    id: "ribbons", type: "line", source: "ribbons",
+    layout: { "line-cap": "butt", "line-join": "round", "line-sort-key": ["-", 0, ["get", "w"]] },
+    paint: {
+      "line-color": colorExpr,
+      "line-width": scaled("w"),
+      "line-offset": scaled("o"),
+      "line-opacity": 0.92,
+    },
+  }, firstSymbol);
+
+  for (const d of D.depots) for (const y of d.yards) {
+    const el = document.createElement("div");
+    el.className = "yard";
+    el.style.background = d.color;
+    el.title = y.name;
+    new maplibregl.Marker({ element: el }).setLngLat([y.lon, y.lat]).addTo(map);
+  }
+  setupHover();
+});
+
+// ---------- legend & solo ----------
+const legend = document.getElementById("legend");
+for (const d of D.depots) {
+  const s = D.stats[d.id];
+  const tr = document.createElement("tr");
+  tr.dataset.id = d.id;
+  tr.innerHTML = `<td><span class="sw" style="background:${d.color}"></span>${esc(d.name)}</td>
+    <td>${s.lines.length}</td><td>${fmt(s.trips)}</td>`;
+  tr.onclick = () => setSolo(solo === d.id ? null : d.id);
+  legend.append(tr);
+}
+
+let centreMarker = null;
+function setSolo(id) {
+  solo = id;
+  for (const tr of legend.children) {
+    tr.classList.toggle("off", !!id && tr.dataset.id !== id);
+    tr.classList.toggle("solo", tr.dataset.id === id);
+  }
+  const op = id ? ["case", ["==", ["get", "d"], id], 0.95, 0.07] : 0.92;
+  map.setPaintProperty("ribbons", "line-opacity", op);
+  // A lone depot sits on the road axis; together they sit side by side.
+  map.setPaintProperty("ribbons", "line-offset", id ? 0 : scaled("o"));
+  map.setPaintProperty("ribbons", "line-color", id ? ["case", ["==", ["get", "d"], id], COLOR[id], "#888"] : colorExpr);
+
+  centreMarker?.remove(); centreMarker = null;
+  const det = document.getElementById("detail");
+  if (!id) {
+    det.style.display = "none";
+    return;
+  }
+  const s = D.stats[id];
+  const el = document.createElement("div");
+  el.className = "centre"; el.style.background = COLOR[id]; el.title = "środek ciężkości sieci";
+  centreMarker = new maplibregl.Marker({ element: el }).setLngLat(s.centre).addTo(map);
+  const km = v => v.toFixed(1).replace(".", ",") + " km";
+  const yards = D.depots.find(d => d.id === id).yards;
+  det.innerHTML = `<h2><span class="sw" style="background:${COLOR[id]}"></span>${esc(NAME[id])}</h2>
+    <dl>
+      <dt>linie</dt><dd>${s.lines.length}</dd>
+      <dt>kursy / dobę</dt><dd>${fmt(s.trips)}</dd>
+      <dt>długość sieci</dt><dd>${fmt(s.networkKm)} km ulic</dd>
+      <dt>przebieg</dt><dd>${fmt(s.tripKm)} kursokm</dd>
+      <dt>połowa przebiegu</dt><dd>do ${km(s.medianKm)} od środka</dd>
+      <dt>najdalej</dt><dd>${km(s.maxKm)} od środka${s.yardMaxKm != null ? `, ${km(s.yardMaxKm)} od zajezdni` : ""}</dd>
+      ${yards.length ? `<dt>zajezdnia</dt><dd>${yards.map(y => esc(y.name)).join(", ")}</dd>` : ""}
+    </dl>
+    <div class="lines">${s.lines.map(esc).join(" ")}</div>`;
+  det.style.display = "block";
+}
+
+// ---------- hover ----------
+function setupHover() {
+  const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10, maxWidth: "320px" });
+  const row = (d, value, extra) => `<div class="tip-row"><span class="sw" style="background:${COLOR[d]}"></span>
+    <span>${esc(d)} <b>${value}</b></span><span class="l">${extra ? esc(extra) : ""}</span></div>`;
+  map.on("mousemove", e => {
+    const pad = 4;
+    const f = map.queryRenderedFeatures([[e.point.x - pad, e.point.y - pad], [e.point.x + pad, e.point.y + pad]], { layers: ["ribbons"] })[0];
+    if (!f) { popup.remove(); map.getCanvas().style.cursor = ""; return; }
+    map.getCanvas().style.cursor = "default";
+    const rows = JSON.parse(f.properties.t);
+    const html = `<div class="tip-h">kursy na dobę na tym odcinku</div>` + rows.map(([d, n, lines]) => row(d, fmt(n), lines)).join("");
+    popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+  });
+  map.getCanvas().addEventListener("mouseleave", () => popup.remove());
+}
+</script>
+</body>
+</html>
